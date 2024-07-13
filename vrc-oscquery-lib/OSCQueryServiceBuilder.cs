@@ -1,13 +1,16 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
 namespace VRC.OSCQuery
 {
     public class OSCQueryServiceBuilder
     {
-        private readonly OSCQueryService _service = new OSCQueryService();
+        private readonly OSCQueryService _service = new ();
         public OSCQueryService Build()
         {
             if (!_customStartup)
@@ -27,20 +30,20 @@ namespace VRC.OSCQuery
         public OSCQueryServiceBuilder WithDefaults()
         {
             _customStartup = true;
-            StartHttpServer();
+            AddHttpServer();
             WithDiscovery(new MeaModDiscovery());
             AdvertiseOSCQuery();
             AdvertiseOSC();
             return this;
         }
-        
+
         public OSCQueryServiceBuilder WithTcpPort(int port)
         {
             _customStartup = true;
             _service.TcpPort = port;
             return this;
         }
-        
+
         public OSCQueryServiceBuilder WithUdpPort(int port)
         {
             _customStartup = true;
@@ -51,26 +54,55 @@ namespace VRC.OSCQuery
         public OSCQueryServiceBuilder WithHostIP(IPAddress address)
         {
             _customStartup = true;
-            _service.HostIP = address;
-            
-            // Set the OSC IP to the host IP if it's not already set
-            if(Equals(_service.OscIP, IPAddress.Loopback))
-                _service.OscIP = address;
-            
-            return this;
-        }
-        
-        public OSCQueryServiceBuilder WithOscIP(IPAddress address)
-        {
-            _customStartup = true;
-            _service.OscIP = address;
+            if (!_service.HostIP.Contains(address))
+                _service.HostIP.Add(address);
+
             return this;
         }
 
-        public OSCQueryServiceBuilder StartHttpServer()
+        public OSCQueryServiceBuilder WithHostIPs(IEnumerable<IPAddress> address)
         {
             _customStartup = true;
-            _service.StartHttpServer();
+            _service.HostIP.AddRange(address.Distinct().Where(ip => !_service.HostIP.Exists(hostIp => Equals(hostIp, ip))));
+
+            return this;
+        }
+
+        public OSCQueryServiceBuilder WithOscIP(IPAddress address)
+        {
+            _customStartup = true;
+            if (!_service.OscIP.Contains(address))
+                _service.OscIP.Add(address);
+
+            return this;
+        }
+
+        public OSCQueryServiceBuilder WithOscIPs(IEnumerable<IPAddress> addresses)
+        {
+            _customStartup = true;
+            _service.OscIP.AddRange(addresses);
+
+            return this;
+        }
+
+        public OSCQueryServiceBuilder WithDynamicOscIp(bool useDynamicOscIp = true)
+        {
+            _customStartup = true;
+            _service.UseDynamicOscIp = useDynamicOscIp;
+            return this;
+        }
+
+        public OSCQueryServiceBuilder WithListenAnyHost(bool listenAnyHost = true)
+        {
+            _customStartup = true;
+            _service.ListenAnyHost = listenAnyHost;
+            return this;
+        }
+
+        public OSCQueryServiceBuilder AddHttpServer(ILoggerFactory loggerFactory = null)
+        {
+            _customStartup = true;
+            _service.UseHttpServer(loggerFactory);
             return this;
         }
 
@@ -88,7 +120,7 @@ namespace VRC.OSCQuery
             return this;
         }
 
-        public OSCQueryServiceBuilder WithMiddleware(Func<HttpListenerContext, Action, Task> middleware)
+        public OSCQueryServiceBuilder WithMiddleware(Func<HttpContext, Action, Task> middleware)
         {
             _customStartup = true;
             _service.AddMiddleware(middleware);
@@ -102,15 +134,15 @@ namespace VRC.OSCQuery
             return this;
         }
 
-        public OSCQueryServiceBuilder AddListenerForServiceType(Action<OSCQueryServiceProfile> listener, OSCQueryServiceProfile.ServiceType type)
+        public OSCQueryServiceBuilder AddListenerForServiceType(Action<OSCQueryServiceProfile> listener, OSCQueryServiceProfile.ProfileServiceType type)
         {
             _customStartup = true;
             switch (type)
             {
-                case OSCQueryServiceProfile.ServiceType.OSC:
+                case OSCQueryServiceProfile.ProfileServiceType.OSC:
                     _service.OnOscServiceAdded += listener;
                     break;
-                case OSCQueryServiceProfile.ServiceType.OSCQuery:
+                case OSCQueryServiceProfile.ProfileServiceType.OSCQuery:
                     _service.OnOscQueryServiceAdded += listener;
                     break;
             }

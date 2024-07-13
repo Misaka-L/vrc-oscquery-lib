@@ -1,46 +1,48 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 
 namespace VRC.OSCQuery
 {
     public class OSCQueryServiceProfile : IEquatable<OSCQueryServiceProfile>
     {
-        public int port;
-        public string name;
-        public IPAddress address;
-        public ServiceType serviceType;
+        public int Port { get; set; }
+        public string Name { get; set; }
+        public IPAddress[] Addresses { get; set; }
+        public ProfileServiceType ServiceType { get; set; }
 
-        public enum ServiceType
+        public enum ProfileServiceType
         {
             Unknown, OSCQuery, OSC
         }
 
         public string GetServiceTypeString()
         {
-            switch (serviceType)
+            switch (ServiceType)
             {
-                case ServiceType.OSC:
+                case ProfileServiceType.OSC:
                     return Attributes.SERVICE_OSC_UDP;
-                case ServiceType.OSCQuery:
+                case ProfileServiceType.OSCQuery:
                     return Attributes.SERVICE_OSCJSON_TCP;
                 default:
                     return "UNKNOWN";
             }
         }
 
-        public OSCQueryServiceProfile(string name, IPAddress address, int port, ServiceType serviceType)
+        public OSCQueryServiceProfile(string name, IEnumerable<IPAddress> addresses, int port, ProfileServiceType serviceType)
         {
-            this.name = name;
-            this.address = address;
-            this.port = port;
-            this.serviceType = serviceType;
+            Name = name;
+            Addresses = addresses.Distinct().ToArray();
+            Port = port;
+            ServiceType = serviceType;
         }
 
         public bool Equals(OSCQueryServiceProfile other)
         {
             if (ReferenceEquals(null, other)) return false;
             if (ReferenceEquals(this, other)) return true;
-            return port == other.port && name == other.name && Equals(address, other.address) && serviceType == other.serviceType;
+            return Port == other.Port && Name == other.Name && Equals(Addresses, other.Addresses) && ServiceType == other.ServiceType;
         }
 
         public override bool Equals(object obj)
@@ -55,10 +57,10 @@ namespace VRC.OSCQuery
         {
             unchecked
             {
-                var hashCode = port;
-                hashCode = (hashCode * 397) ^ (name != null ? name.GetHashCode() : 0);
-                hashCode = (hashCode * 397) ^ (address != null ? address.GetHashCode() : 0);
-                hashCode = (hashCode * 397) ^ (int)serviceType;
+                var hashCode = Port;
+                hashCode = (hashCode * 397) ^ (Name != null ? Name.GetHashCode() : 0);
+                hashCode = (hashCode * 397) ^ (Addresses != null ? Addresses.GetHashCode() : 0);
+                hashCode = (hashCode * 397) ^ (int)ServiceType;
                 return hashCode;
             }
         }

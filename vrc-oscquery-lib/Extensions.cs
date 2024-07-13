@@ -4,6 +4,7 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Sockets;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 using Newtonsoft.Json;
 
 namespace VRC.OSCQuery
@@ -11,7 +12,7 @@ namespace VRC.OSCQuery
     public static class Extensions
     {
         private static readonly HttpClient _client = new HttpClient();
-        
+
         public static IEnumerable<T> SkipLast<T>(this IEnumerable<T> source, int count)
         {
             var queue = new Queue<T>();
@@ -35,9 +36,9 @@ namespace VRC.OSCQuery
                 }
             }
         }
-    
+
         private static readonly IPEndPoint DefaultLoopbackEndpoint = new IPEndPoint(IPAddress.Loopback, port: 0);
-        
+
         public static int GetAvailableTcpPort()
         {
             using (var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp))
@@ -46,7 +47,7 @@ namespace VRC.OSCQuery
                 return ((IPEndPoint)socket.LocalEndPoint).Port;
             }
         }
-        
+
         public static int GetAvailableUdpPort()
         {
             using (var socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp))
@@ -66,7 +67,7 @@ namespace VRC.OSCQuery
 
             var oscTreeString = await response.Content.ReadAsStringAsync();
             var oscTree = OSCQueryRootNode.FromString(oscTreeString);
-            
+
             return oscTree;
         }
 
@@ -76,17 +77,13 @@ namespace VRC.OSCQuery
             var hostInfoString = await response.Content.ReadAsStringAsync();
             return JsonConvert.DeserializeObject<HostInfo>(hostInfoString);
         }
-        
-        public static async Task ServeStaticFile(string path, string mimeType, HttpListenerContext context)
+
+        public static async Task ServeStaticFile(string path, string mimeType, HttpContext context)
         {
-            using (var targetFile = File.OpenRead(path))
-            {
-                context.Response.ContentType =mimeType;
-                context.Response.StatusCode = 200;
-                context.Response.ContentLength64 = targetFile.Length;
-                await targetFile.CopyToAsync(context.Response.OutputStream);
-                await context.Response.OutputStream.FlushAsync();
-            }
+            await using var targetFile = File.OpenRead(path);
+
+            context.Response.ContentType = mimeType;
+            await targetFile.CopyToAsync(context.Response.Body);
         }
     }
 }
